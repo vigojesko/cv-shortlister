@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      String   @default("admin")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Position {
+  id                     String      @id @default(cuid())
+  title                  String
+  department             String?
+  location               String?
+  description            String
+  mustHaveRequirements  String      // JSON string array
+  niceToHaveRequirements String      // JSON string array
+  minExperienceYears     Int         @default(0)
+  minEducation           String      @default("SMA/SMK")
+  emailKeywords          String      // JSON string array or comma separated
+  emailLabels            String?     // Optional comma separated Gmail labels
+  
+  // Weights (total 100%)
+  weightSkills           Int         @default(35)
+  weightExperience       Int         @default(30)
+  weightEducation        Int         @default(15)
+  weightPortfolio        Int         @default(20)
+  
+  // Shortlist Rule: "THRESHOLD" | "TOP_N"
+  shortlistRuleType      String      @default("THRESHOLD")
+  shortlistThreshold     Float       @default(70.0)
+  shortlistTopN          Int         @default(5)
+  
+  isActive               Boolean     @default(true)
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
+  
+  candidates             Candidate[]
+  jobs                   JobQueue[]
+}
+
+model Candidate {
+  id                 String       @id @default(cuid())
+  positionId         String?
+  position           Position?    @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  
+  // Basic info extracted
+  name               String
+  email              String
+  phone              String?
+  location           String?
+  totalExperienceYears Float      @default(0)
+  educationList      String       // JSON: [{degree, institution, year}]
+  links              String       // JSON: {linkedin, portfolio, github, other}
+  
+  // Scores (0-100)
+  scoreSkills        Float        @default(0)
+  scoreExperience    Float        @default(0)
+  scoreEducation     Float        @default(0)
+  scorePortfolio     Float        @default(0)
+  overallScore       Float        @default(0) // Calculated deterministically from position weights
+  
+  // AI Evaluations
+  mustHaveResults    String       // JSON: [{requirement, met, evidence}]
+  niceToHaveResults  String       // JSON: [{requirement, met, evidence}]
+  allMustHaveMet     Boolean      @default(false)
+  
+  summary            String
+  portfolioSummary   String
+  strengths          String       // JSON string array
+  gaps               String       // JSON string array
+  strongestAspect    String       // skills | experience | education | portfolio
+  aiRecommendation   String       // SHORTLIST | MAYBE | REJECT
+  aiReasoning        String
+  aiConfidence       Float        @default(1.0)
+  
+  // Final Status
+  status             String       @default("MAYBE") // SHORTLIST | MAYBE | REJECT | NEEDS_HR_REVIEW
+  isManualOverride   Boolean      @default(false)
+  hrNotes            String?
+  
+  // Source metadata
+  source             String       @default("GMAIL") // GMAIL | MANUAL_UPLOAD
+  gmailMessageId     String?      @unique
+  emailSubject       String?
+  emailSender        String?
+  emailDate          DateTime?
+  
+  // File info
+  fileName           String
+  fileHash           String       // SHA-256 for duplicate prevention
+  filePath           String?      // Local disk path if stored
+  fileMimeType       String
+  
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+}
+
+model GmailAccount {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  encryptedToken String    // AES-256-GCM encrypted tokens JSON (access_token, refresh_token, expiry_date)
+  iv             String    // Hex IV for AES-GCM
+  authTag        String    // Hex Auth Tag for AES-GCM
+  isConnected    Boolean   @default(true)
+  lastSyncAt     DateTime?
+  lastErrorMessage String?
+  syncIntervalMinutes Int  @default(15)
+  backfillDays   Int       @default(14)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model JobQueue {
+  id             String    @id @default(cuid())
+  type           String    // SCREEN_CV | SYNC_GMAIL | ROUTE_EMAIL
+  payload        String    // JSON data
+  status         String    @default("PENDING") // PENDING | PROCESSING | COMPLETED | FAILED
+  attempts       Int       @default(0)
+  maxAttempts    Int       @default(3)
+  lastError      String?
+  positionId     String?
+  position       Position? @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model ProcessedEmail {
+  id             String    @id @default(cuid())
+  messageId      String    @unique
+  subject        String?
+  sender         String?
+  date           DateTime?
+  actionTaken    String    // PROCESSED | SKIPPED_NO_ATTACHMENT | SKIPPED_NOT_JOB_APPLICATION | FAILED
+  reason         String?
+  createdAt      DateTime  @default(now())
+}
+
+model SystemSetting {
+  key         String   @id
+  value       String
+  updatedAt   DateTime @updatedAt
+}

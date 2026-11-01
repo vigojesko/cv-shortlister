@@ -1,0 +1,21 @@
+import { z } from "zod";
+export const PositionCreateSchema = z.object({
+  title: z.string().min(2, "Judul posisi minimal 2 karakter"),
+  department: z.string().optional().nullable(),
+  location: z.string().optional().nullable(),
+  description: z.string().min(10, "Deskripsi minimal 10 karakter"),
+  mustHaveRequirements: z.array(z.string()).min(1, "Minimal 1 must-have requirement"),
+  niceToHaveRequirements: z.array(z.string()).default([]),
+  minExperienceYears: z.number().min(0).default(0),
+  minEducation: z.string().default("SMA/SMK"),
+  emailKeywords: z.array(z.string()).min(1, "Minimal 1 kata kunci subjek"),
+  emailLabels: z.string().optional().nullable(),
+  weightSkills: z.number().min(0).max(100).default(35),
+  weightExperience: z.number().min(0).max(100).default(30),
+  weightEducation: z.number().min(0).max(100).default(15),
+  weightPortfolio: z.number().min(0).max(100).default(20),
+  shortlistRuleType: z.enum(["THRESHOLD", "TOP_N"]).default("THRESHOLD"),
+  shortlistThreshold: z.number().min(0).max(100).default(70),
+  shortlistTopN: z.number().min(1).default(5),
+  isActive: z.boolean().default(true),
+});
